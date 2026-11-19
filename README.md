@@ -16,8 +16,8 @@ You need **[Git](https://git-scm.com/downloads)** and **[Docker](https://docs.do
 No Java or Maven is needed: everything is built inside Docker.
 
 ```bash
-git clone https://github.com/Besederallin/camunda-api-test.git
-cd camunda-api-test
+git clone https://github.com/Besederallin/animal-api-test.git
+cd animal-api-test
 docker compose up --build
 ```
 
