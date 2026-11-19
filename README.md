@@ -9,163 +9,118 @@ from public APIs, stores them in a database and serves back the latest one.
 | dog  | https://place.dog/500/500 |
 | bear | https://placebear.com/500/500 |
 
-The project comes in **two versions** that share the same code:
+## Quick start
 
-| Version | Database | How to run |
+You need **[Git](https://git-scm.com/downloads)** and **[Docker](https://docs.docker.com/get-docker/)**
+(on Windows: [Docker Desktop](https://www.docker.com/products/docker-desktop/), started).
+No Java or Maven is needed: everything is built inside Docker.
+
+```bash
+git clone https://github.com/Besederallin/camunda-api-test.git
+cd camunda-api-test
+docker compose up --build
+```
+
+Wait until the log says `Started PostgresAnimalPicturesApplication` (the first build takes a few minutes),
+then open **http://localhost:8080**, pick an animal and click **Fetch & save**.
+
+Stop with `Ctrl+C`, then `docker compose down` (add `-v` to also delete the stored pictures).
+
+These commands are the same on **Linux, macOS and Windows** (PowerShell, Command Prompt or Git Bash).
+
+## Two versions
+
+The same code runs with two kinds of database. Pick one:
+
+| Version | Database | Start command |
 |---|---|---|
-| `animal-pictures-postgres` | PostgreSQL | `docker compose up --build` |
-| `animal-pictures-embedded` | Embedded H2 (file on disk) | `docker compose -f docker-compose.embedded.yml up --build` |
+| PostgreSQL *(default)* | PostgreSQL 17 in a second container | `docker compose up --build` |
+| Embedded | H2, built into the app (one container) | `docker compose -f docker-compose.embedded.yml up --build` |
 
-How the code is organised is described in [README-CODE.md](README-CODE.md).
-Logs, metrics, Grafana dashboards and IDE debugging are described in
-[DEBUGGING-AND-MONITORING.md](DEBUGGING-AND-MONITORING.md).
+## Optional extras
 
-## Requirements
+| What | Start command | Then open |
+|---|---|---|
+| Monitoring (Prometheus + Grafana dashboard) | `docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --build` | http://localhost:3000 |
+| Debugging (Java debugger on port 5005, DEBUG logs) | `docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build` | attach your IDE to `localhost:5005` |
 
-| You want to... | You need |
-|---|---|
-| Run with Docker Compose | **Docker** with Docker Compose (Docker Desktop on Windows). Nothing else: the code is compiled inside Docker. |
-| Build, test or run without Docker | **JDK 21** or newer (a full JDK, not just a Java runtime). Maven is **not** needed: the Maven Wrapper (`mvnw` / `mvnw.cmd`) downloads the right version. |
-| Run the PostgreSQL integration tests | JDK 21+ **and** Docker running |
+Details: [DEBUGGING-AND-MONITORING.md](DEBUGGING-AND-MONITORING.md). How the code works: [README-CODE.md](README-CODE.md).
 
-### Check your JDK
+### Troubleshooting
 
-Run both commands (the same on Linux, macOS and Windows):
+- **`port is already allocated`** – something else uses port 8080. Pick another port:
+  `APP_PORT=9090 docker compose up --build` (Linux/macOS) or
+  `$env:APP_PORT="9090"; docker compose up --build` (Windows PowerShell), then open http://localhost:9090.
+- **`Cannot connect to the Docker daemon`** / `docker: command not found` – start Docker (Docker Desktop on Windows/macOS).
+- **`Repository not found` when cloning** – the repository is private: ask the owner for access and sign in
+  to GitHub (for example with `gh auth login`), or download it as a ZIP from the GitHub page
+  (*Code → Download ZIP*) and run the same `docker compose` command in the unpacked folder.
+
+## Run without Docker
+
+Only needed if you want to build or run the app with your own Java. Requires **JDK 21 or newer**.
+Maven is not needed: the included Maven Wrapper (`mvnw` / `mvnw.cmd`) downloads it.
+
+<details>
+<summary><b>Check / install JDK 21</b></summary>
+
+Check (Linux, macOS and Windows). Both must show version **21 or higher**:
 
 ```bash
 java -version
 javac -version
 ```
 
-Both must print version **21 or higher**, for example `openjdk version "21.0.5"` and `javac 21.0.5`.
+If `javac` is "not found", only a Java runtime is installed: install a JDK.
 
-- `java` works but `javac` is "not found": only a Java runtime (JRE) is installed. Install a JDK as shown below.
-- The version is lower than 21: install JDK 21 and make it the default (or set `JAVA_HOME`, see below).
-- The wrapper uses `JAVA_HOME` if it is set, otherwise the `java` on your `PATH`. Check which one it picks with
-  `./mvnw -v` (Linux) or `mvnw.cmd -v` (Windows). Look for `Java version: 21...`.
+- **Ubuntu / Debian**: `sudo apt install -y openjdk-21-jdk`
+  (if several versions are installed: `sudo update-alternatives --config java` and `... --config javac`)
+- **Fedora / RHEL**: `sudo dnf install java-21-openjdk-devel`
+- **Windows**: `winget install EclipseAdoptium.Temurin.21.JDK`, or the installer from https://adoptium.net
+  (tick *Set JAVA_HOME* and *Add to PATH*). Open a new terminal afterwards.
+- **macOS**: `brew install --cask temurin@21`
 
-### Install JDK 21
-
-**Linux (Ubuntu / Debian)**
-
-```bash
-sudo apt update && sudo apt install -y openjdk-21-jdk
-# If several Java versions are installed, choose 21 as the default:
-sudo update-alternatives --config java
-sudo update-alternatives --config javac
-```
-
-Fedora / RHEL: `sudo dnf install java-21-openjdk-devel`. Any OS: [Eclipse Temurin 21](https://adoptium.net/temurin/releases/?version=21) or [SDKMAN](https://sdkman.io/) (`sdk install java 21-tem`).
-
-**Windows**
-
-```powershell
-winget install EclipseAdoptium.Temurin.21.JDK
-```
-
-Or download the **Eclipse Temurin 21 JDK** `.msi` from https://adoptium.net and tick
-**"Set JAVA_HOME variable"** and **"Add to PATH"** during setup. Open a **new** terminal afterwards.
-
-If an older Java is still picked up, set `JAVA_HOME` for the current terminal (adjust the path to your install):
-
-```powershell
-# PowerShell
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot"
-$env:Path = "$env:JAVA_HOME\bin;$env:Path"
-```
+The wrapper uses `JAVA_HOME` if set, otherwise `java` from your `PATH`. `./mvnw -v` (Windows: `.\mvnw.cmd -v`)
+shows which Java it uses. To point it at JDK 21:
 
 ```bash
-# Linux
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-export PATH="$JAVA_HOME/bin:$PATH"
-```
-
-## Run with Docker Compose
-
-The commands are the same on **Linux** and **Windows** (PowerShell or Command Prompt, with Docker Desktop running).
-Run them from the project folder.
-
-PostgreSQL version (app + PostgreSQL 17):
-
-```bash
-docker compose up --build
-```
-
-Embedded-database version (a single container, H2 stored in a Docker volume):
-
-```bash
-docker compose -f docker-compose.embedded.yml up --build
-```
-
-Then open **http://localhost:8080** for the UI, or use the API below.
-Stop with `docker compose down` (add `-v` to also delete the stored pictures).
-
-To use another port than 8080:
-
-```bash
-# Linux
-APP_PORT=9090 docker compose up --build
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64                          # Linux
 ```
 
 ```powershell
-# Windows PowerShell
-$env:APP_PORT = "9090"; docker compose up --build
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot"     # Windows PowerShell (adjust the path)
 ```
 
-## Run without Docker (JDK 21 required)
+</details>
 
-### Linux / macOS
+<details>
+<summary><b>Build and run</b></summary>
 
-Embedded version:
+Embedded version (no database needed):
 
 ```bash
-./mvnw -pl animal-pictures-embedded -am package -DskipTests
+./mvnw -pl animal-pictures-embedded -am package -DskipTests                     # Linux / macOS
 java -jar animal-pictures-embedded/target/animal-pictures-embedded.jar
 ```
 
-If you get `Permission denied` on `./mvnw`, run `chmod +x mvnw` once.
+```powershell
+.\mvnw.cmd -pl animal-pictures-embedded -am package -DskipTests                 # Windows
+java -jar animal-pictures-embedded\target\animal-pictures-embedded.jar
+```
 
-PostgreSQL version (needs a PostgreSQL; the app's defaults match this container):
+PostgreSQL version: start a database first (the app's defaults match this one), then build and run
+`animal-pictures-postgres` the same way:
 
 ```bash
-docker run -d --name animal-db -p 5432:5432 -e POSTGRES_DB=animal_pictures \
-  -e POSTGRES_USER=animal -e POSTGRES_PASSWORD=animal postgres:17-alpine
+docker run -d --name animal-db -p 5432:5432 -e POSTGRES_DB=animal_pictures -e POSTGRES_USER=animal -e POSTGRES_PASSWORD=animal postgres:17-alpine
 ./mvnw -pl animal-pictures-postgres -am package -DskipTests
 java -jar animal-pictures-postgres/target/animal-pictures-postgres.jar
 ```
 
-### Windows (PowerShell)
+To use another database, set `SPRING_DATASOURCE_URL` (and `_USERNAME`, `_PASSWORD`) before `java -jar`.
+On Linux, if `./mvnw` gives `Permission denied`, run `chmod +x mvnw` once.
 
-Use `mvnw.cmd` instead of `./mvnw` and `\` in paths:
-
-```powershell
-.\mvnw.cmd -pl animal-pictures-embedded -am package -DskipTests
-java -jar animal-pictures-embedded\target\animal-pictures-embedded.jar
-```
-
-PostgreSQL version:
-
-```powershell
-docker run -d --name animal-db -p 5432:5432 -e POSTGRES_DB=animal_pictures `
-  -e POSTGRES_USER=animal -e POSTGRES_PASSWORD=animal postgres:17-alpine
-.\mvnw.cmd -pl animal-pictures-postgres -am package -DskipTests
-java -jar animal-pictures-postgres\target\animal-pictures-postgres.jar
-```
-
-In Command Prompt (`cmd`) the commands are the same, without the leading `.\` and with `^` instead of
-the backtick for line continuation.
-
-To connect to a different database, set the connection before `java -jar`:
-
-```bash
-# Linux
-export SPRING_DATASOURCE_URL=jdbc:postgresql://db-host:5432/animal_pictures
-```
-
-```powershell
-# Windows PowerShell
-$env:SPRING_DATASOURCE_URL = "jdbc:postgresql://db-host:5432/animal_pictures"
-```
+</details>
 
 ## REST API
 
@@ -195,53 +150,21 @@ latest stored picture is shown. **Show latest** displays the newest stored pictu
 
 ## Tests
 
+Needs JDK 21 (see above). The PostgreSQL tests also need Docker running.
+
 ```bash
 ./mvnw verify          # Linux / macOS
-```
-
-```powershell
 .\mvnw.cmd verify      # Windows
 ```
 
-This runs:
+- **Unit tests**: animal name parsing, service logic, HTTP client against a mocked server.
+- **Integration tests**: the full REST API against H2 and against a real PostgreSQL
+  ([Testcontainers](https://testcontainers.com/)).
+  Without Docker, skip the PostgreSQL ones: `./mvnw verify -pl animal-pictures-core,animal-pictures-embedded`.
+- **Smoke test** against the real picture APIs, on a running app (Bash; on Windows use Git Bash or WSL):
+  `scripts/smoke-test.sh http://localhost:8080`
 
-- **Unit tests** (`animal-pictures-core`): animal name parsing, the service logic, and the HTTP client
-  against a mocked server (no network).
-- **Integration tests with H2** (`animal-pictures-embedded`): the full REST API, database schema and
-  error handling.
-- **Integration tests with PostgreSQL** (`animal-pictures-postgres`): the same flow against a real
-  PostgreSQL started by [Testcontainers](https://testcontainers.com/). **These need Docker running.**
-  Without Docker, run the other tests only: `./mvnw verify -pl animal-pictures-core,animal-pictures-embedded`
-  (Windows: `.\mvnw.cmd verify -pl animal-pictures-core,animal-pictures-embedded`).
-
-The picture APIs are faked in these tests so they are fast and reliable. To check against the real
-APIs, use the end-to-end smoke test on a running service:
-
-```bash
-docker compose up --build -d --wait
-scripts/smoke-test.sh http://localhost:8080
-```
-
-The smoke test is a Bash script: on Windows run it from **Git Bash** or **WSL** with the same command.
-
-GitHub Actions (`.github/workflows/ci.yml`) runs `./mvnw verify` and then the smoke test for both
-versions in Docker Compose on every push and pull request.
-
-## Debugging and monitoring
-
-Add-on Compose files work with either version. Full guide: [DEBUGGING-AND-MONITORING.md](DEBUGGING-AND-MONITORING.md).
-
-```bash
-# Prometheus + Grafana dashboard (http://localhost:3000)
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --build
-# Java debugger on port 5005 + DEBUG logs
-docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
-```
-
-- Every response has an `X-Request-Id` header, and every log line for that request carries the same ID.
-- `/actuator/health`, `/actuator/info`, `/actuator/metrics`, `/actuator/prometheus`, and `/actuator/loggers`
-  to change log levels without a restart.
-- `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` switches to JSON logs.
+GitHub Actions runs all of these on every push.
 
 ## Configuration
 
