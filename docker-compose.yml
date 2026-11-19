@@ -1,0 +1,39 @@
+# PostgreSQL version: the service plus a PostgreSQL database.
+#   docker compose up --build        ->  http://localhost:8080
+name: animal-pictures
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: animal_pictures
+      POSTGRES_USER: ${POSTGRES_USER:-animal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-animal}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      args:
+        MODULE: animal-pictures-postgres
+    image: animal-pictures-postgres:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/animal_pictures
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-animal}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-animal}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: animal-pictures-postgres
+  datasource:
+    # Defaults match docker-compose.yml; override with SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD.
+    url: jdbc:postgresql://localhost:5432/animal_pictures
+    username: animal
+    password: animal
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # the schema is owned by Flyway (db/migration)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

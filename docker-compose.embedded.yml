@@ -1,0 +1,19 @@
+# Embedded-database version: a single container with H2 stored on a volume.
+#   docker compose -f docker-compose.embedded.yml up --build        ->  http://localhost:8080
+name: animal-pictures-embedded
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        MODULE: animal-pictures-embedded
+    image: animal-pictures-embedded:latest
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    volumes:
+      - h2-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  h2-data:

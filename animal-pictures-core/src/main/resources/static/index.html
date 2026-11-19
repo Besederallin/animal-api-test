@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Animal Pictures</title>
+    <style>
+        body { font-family: sans-serif; max-width: 720px; margin: 2em auto; padding: 0 1em; }
+        fieldset { margin-bottom: 1em; }
+        img { max-width: 100%; border: 1px solid #ccc; margin-top: 0.5em; }
+        .error { color: #b00020; }
+        table { border-collapse: collapse; }
+        td, th { border: 1px solid #ccc; padding: 0.2em 0.5em; text-align: left; }
+    </style>
+</head>
+<body>
+<h1>Animal Pictures</h1>
+
+<fieldset>
+    <legend>Request pictures</legend>
+    <label>Animal
+        <select id="animal">
+            <option value="duck">Duck</option>
+            <option value="dog">Dog</option>
+            <option value="bear">Bear</option>
+        </select>
+    </label>
+    <label>Count <input id="count" type="number" min="1" max="10" value="1" style="width: 4em"></label>
+    <button id="fetch">Fetch &amp; save</button>
+    <button id="latest">Show latest</button>
+</fieldset>
+
+<p id="status" role="status"></p>
+<table id="saved" hidden>
+    <thead><tr><th>ID</th><th>Animal</th><th>Type</th><th>Size</th><th>Saved at</th></tr></thead>
+    <tbody></tbody>
+</table>
+<img id="picture" alt="Latest stored picture" hidden>
+
+<script>
+    const $ = id => document.getElementById(id);
+
+    function setStatus(text, isError) {
+        $('status').textContent = text;
+        $('status').className = isError ? 'error' : '';
+    }
+
+    async function errorText(response) {
+        try {
+            const problem = await response.json();
+            return problem.detail || problem.title || response.statusText;
+        } catch {
+            return response.status + ' ' + response.statusText;
+        }
+    }
+
+    async function fetchAndSave() {
+        const animal = $('animal').value;
+        const count = $('count').value;
+        setStatus('Fetching ' + count + ' ' + animal + ' picture(s)...');
+        $('fetch').disabled = true;
+        try {
+            const response = await fetch('/api/pictures/' + animal + '?count=' + encodeURIComponent(count), {method: 'POST'});
+            if (!response.ok) {
+                setStatus(await errorText(response), true);
+                return;
+            }
+            const pictures = await response.json();
+            const rows = pictures.map(p => {
+                const tr = document.createElement('tr');
+                [p.id, p.animal, p.contentType, p.sizeBytes + ' B', new Date(p.createdAt).toLocaleString()]
+                    .forEach(value => {
+                        const td = document.createElement('td');
+                        td.textContent = value;
+                        tr.appendChild(td);
+                    });
+                return tr;
+            });
+            $('saved').querySelector('tbody').replaceChildren(...rows);
+            $('saved').hidden = false;
+            setStatus('Saved ' + pictures.length + ' picture(s).');
+            await showLatest();
+        } catch (e) {
+            setStatus('Request failed: ' + e.message, true);
+        } finally {
+            $('fetch').disabled = false;
+        }
+    }
+
+    async function showLatest() {
+        const animal = $('animal').value;
+        try {
+            const response = await fetch('/api/pictures/' + animal + '/latest');
+            if (!response.ok) {
+                $('picture').hidden = true;
+                setStatus(await errorText(response), true);
+                return;
+            }
+            const blob = await response.blob();
+            if ($('picture').src) URL.revokeObjectURL($('picture').src);
+            $('picture').src = URL.createObjectURL(blob);
+            $('picture').hidden = false;
+            if (!$('status').textContent.startsWith('Saved')) {
+                setStatus('Latest ' + animal + ' picture (id ' + response.headers.get('X-Picture-Id') + ').');
+            }
+        } catch (e) {
+            setStatus('Request failed: ' + e.message, true);
+        }
+    }
+
+    $('fetch').addEventListener('click', fetchAndSave);
+    $('latest').addEventListener('click', () => { setStatus(''); showLatest(); });
+</script>
+</body>
+</html>
