@@ -36,4 +36,14 @@ status=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/")
 [ "$status" = 200 ] || fail "UI page returned $status"
 echo "OK: UI page served"
 
+# Save responses to files first: "curl | grep -q" can fail under pipefail when grep exits early.
+curl -fs -o "$TMP/metrics.txt" "$BASE_URL/actuator/prometheus" || fail "Prometheus metrics endpoint failed"
+grep -q '^animal_pictures_stored_total' "$TMP/metrics.txt" \
+    || fail "Prometheus metrics endpoint does not expose animal_pictures_stored_total"
+echo "OK: Prometheus metrics exposed"
+
+curl -fs -D "$TMP/request-id.headers" -o /dev/null -H 'X-Request-Id: smoke-test-1' "$BASE_URL/api/pictures/duck/latest"
+grep -qi '^x-request-id: smoke-test-1' "$TMP/request-id.headers" || fail "X-Request-Id is not echoed back"
+echo "OK: request ID echoed"
+
 echo "All smoke tests passed."

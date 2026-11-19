@@ -133,6 +133,47 @@ class EmbeddedPictureApiIntegrationTest {
     void healthEndpointIsUp() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components.db.status").value("UP"));
+    }
+
+    @Test
+    void everyResponseCarriesARequestId() throws Exception {
+        mockMvc.perform(get("/api/pictures/dog/latest").header("X-Request-Id", "my-trace-123"))
+                .andExpect(header().string("X-Request-Id", "my-trace-123"));
+        mockMvc.perform(get("/api/pictures/dog/latest"))
+                .andExpect(header().string("X-Request-Id", org.hamcrest.Matchers.matchesPattern("[0-9a-f-]{36}")));
+        // Unsafe IDs (log injection) are replaced with a generated one.
+        mockMvc.perform(get("/api/pictures/dog/latest").header("X-Request-Id", "bad id\nFAKE LOG LINE"))
+                .andExpect(header().string("X-Request-Id", org.hamcrest.Matchers.matchesPattern("[0-9a-f-]{36}")));
+    }
+
+    @Test
+    void exposesCustomMetrics() throws Exception {
+        mockMvc.perform(post("/api/pictures/duck").param("count", "2")).andExpect(status().isCreated());
+
+        mockMvc.perform(get("/actuator/metrics/animal.pictures.stored").param("tag", "animal:duck"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.measurements[0].value").value(org.hamcrest.Matchers.greaterThanOrEqualTo(2.0)));
+    }
+
+    @Test
+    void logLevelsCanBeChangedAtRuntime() throws Exception {
+        mockMvc.perform(post("/actuator/loggers/com.example.animalpictures")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"configuredLevel\":\"DEBUG\"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/actuator/loggers/com.example.animalpictures"))
+                .andExpect(jsonPath("$.configuredLevel").value("DEBUG"));
+        mockMvc.perform(post("/actuator/loggers/com.example.animalpictures")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"configuredLevel\":null}"));
+    }
+
+    @Test
+    void infoEndpointShowsJavaVersion() throws Exception {
+        mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.java.version").exists());
     }
 }

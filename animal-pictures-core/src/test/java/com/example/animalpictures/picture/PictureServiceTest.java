@@ -6,6 +6,7 @@ import com.example.animalpictures.source.FetchedPicture;
 import com.example.animalpictures.source.PictureSourceException;
 import com.example.animalpictures.web.InvalidRequestException;
 import com.example.animalpictures.web.PictureNotFoundException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,12 +36,13 @@ class PictureServiceTest {
     private final AnimalPictureClient client = mock(AnimalPictureClient.class);
     private final PictureRepository repository = mock(PictureRepository.class);
     private final AnimalPicturesProperties properties = new AnimalPicturesProperties();
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private PictureService service;
 
     @BeforeEach
     void setUp() {
         properties.setMaxCount(5);
-        service = new PictureService(client, repository, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new PictureService(client, repository, properties, Clock.fixed(NOW, ZoneOffset.UTC), meterRegistry);
         when(repository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -59,6 +61,7 @@ class PictureServiceTest {
             assertThat(picture.getCreatedAt()).isEqualTo(NOW);
         });
         verify(client, times(3)).fetch(AnimalType.DOG);
+        assertThat(meterRegistry.get("animal.pictures.stored").tag("animal", "dog").counter().count()).isEqualTo(3);
     }
 
     @ParameterizedTest
@@ -78,6 +81,7 @@ class PictureServiceTest {
 
         assertThatThrownBy(() -> service.fetchAndSave(AnimalType.BEAR, 2)).isInstanceOf(PictureSourceException.class);
         verify(repository, never()).saveAll(anyList());
+        assertThat(meterRegistry.find("animal.pictures.stored").counter()).isNull();
     }
 
     @Test

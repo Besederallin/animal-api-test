@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: classpath:animal-pictures-defaults.yml   # shared logging + monitoring settings (core module)
   application:
     name: animal-pictures-embedded
   datasource:
@@ -10,13 +12,3 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate   # the schema is owned by Flyway (db/migration)
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      probes:
-        enabled: true

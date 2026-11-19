@@ -17,6 +17,8 @@ The project comes in **two versions** that share the same code:
 | `animal-pictures-embedded` | Embedded H2 (file on disk) | `docker compose -f docker-compose.embedded.yml up --build` |
 
 How the code is organised is described in [README-CODE.md](README-CODE.md).
+Logs, metrics, Grafana dashboards and IDE debugging are described in
+[DEBUGGING-AND-MONITORING.md](DEBUGGING-AND-MONITORING.md).
 
 ## Requirements
 
@@ -225,6 +227,22 @@ The smoke test is a Bash script: on Windows run it from **Git Bash** or **WSL** 
 GitHub Actions (`.github/workflows/ci.yml`) runs `./mvnw verify` and then the smoke test for both
 versions in Docker Compose on every push and pull request.
 
+## Debugging and monitoring
+
+Add-on Compose files work with either version. Full guide: [DEBUGGING-AND-MONITORING.md](DEBUGGING-AND-MONITORING.md).
+
+```bash
+# Prometheus + Grafana dashboard (http://localhost:3000)
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up --build
+# Java debugger on port 5005 + DEBUG logs
+docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+```
+
+- Every response has an `X-Request-Id` header, and every log line for that request carries the same ID.
+- `/actuator/health`, `/actuator/info`, `/actuator/metrics`, `/actuator/prometheus`, and `/actuator/loggers`
+  to change log levels without a restart.
+- `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs` switches to JSON logs.
+
 ## Configuration
 
 Every setting has a default and can be overridden with an environment variable:
@@ -237,3 +255,6 @@ Every setting has a default and can be overridden with an environment variable:
 | `ANIMAL_PICTURES_MAX_COUNT` | `10` | Most pictures one request may fetch |
 | `ANIMAL_PICTURES_CONNECT_TIMEOUT` / `_READ_TIMEOUT` | `5s` / `15s` | Timeouts when calling the picture APIs |
 | `APP_PORT` | `8080` | Host port used by the Compose files |
+| `LOGGING_LEVEL_COM_EXAMPLE_ANIMALPICTURES` | `INFO` | Log level of this app (`DEBUG` for more detail) |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | (plain text) | `ecs` or `logstash` for JSON logs |
+| `GRAFANA_PORT` / `PROMETHEUS_PORT` / `DEBUG_PORT` | `3000` / `9090` / `5005` | Ports of the monitoring and debug add-ons |

@@ -5,6 +5,7 @@ import com.example.animalpictures.source.AnimalPictureClient;
 import com.example.animalpictures.source.FetchedPicture;
 import com.example.animalpictures.web.InvalidRequestException;
 import com.example.animalpictures.web.PictureNotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,15 @@ public class PictureService {
     private final PictureRepository repository;
     private final AnimalPicturesProperties properties;
     private final Clock clock;
+    private final MeterRegistry meterRegistry;
 
     public PictureService(AnimalPictureClient client, PictureRepository repository,
-                          AnimalPicturesProperties properties, Clock clock) {
+                          AnimalPicturesProperties properties, Clock clock, MeterRegistry meterRegistry) {
         this.client = client;
         this.repository = repository;
         this.properties = properties;
         this.clock = clock;
+        this.meterRegistry = meterRegistry;
     }
 
     /**
@@ -38,6 +41,7 @@ public class PictureService {
      * are stored or (if any download fails) none are.
      */
     public List<Picture> fetchAndSave(AnimalType animal, int count) {
+        log.debug("Fetching {} {} picture(s)", count, animal.value());
         if (count < 1 || count > properties.getMaxCount()) {
             throw new InvalidRequestException(
                     "count must be between 1 and " + properties.getMaxCount() + ", but was " + count);
@@ -50,7 +54,9 @@ public class PictureService {
         }
 
         List<Picture> saved = repository.saveAll(pictures);
-        log.info("Stored {} {} picture(s)", saved.size(), animal.value());
+        meterRegistry.counter("animal.pictures.stored", "animal", animal.value()).increment(saved.size());
+        log.info("Stored {} {} picture(s), ids {}", saved.size(), animal.value(),
+                saved.stream().map(Picture::getId).toList());
         return saved;
     }
 
@@ -58,6 +64,10 @@ public class PictureService {
     @Transactional(readOnly = true)
     public Picture latest(AnimalType animal) {
         return repository.findFirstByAnimalTypeOrderByCreatedAtDescIdDesc(animal)
+                .map(picture -> {
+                    log.debug("Latest {} picture is id {} ({} bytes)", animal.value(), picture.getId(), picture.getSizeBytes());
+                    return picture;
+                })
                 .orElseThrow(() -> new PictureNotFoundException(
                         "No " + animal.value() + " pictures stored yet. Fetch some with POST /api/pictures/" + animal.value()));
     }

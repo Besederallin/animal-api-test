@@ -2,6 +2,7 @@ package com.example.animalpictures.source;
 
 import com.example.animalpictures.config.AnimalPicturesProperties;
 import com.example.animalpictures.picture.AnimalType;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ class HttpAnimalPictureClientTest {
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
 
     private final AnimalPicturesProperties properties = new AnimalPicturesProperties();
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private MockRestServiceServer server;
     private HttpAnimalPictureClient client;
 
@@ -30,7 +32,7 @@ class HttpAnimalPictureClientTest {
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new HttpAnimalPictureClient(builder, properties);
+        client = new HttpAnimalPictureClient(builder, properties, meterRegistry);
     }
 
     @Test
@@ -49,6 +51,10 @@ class HttpAnimalPictureClientTest {
         assertThat(bear.data()).isEqualTo(JPEG);
         assertThat(bear.contentType()).isEqualTo("image/png");
         server.verify();
+        assertThat(meterRegistry.get("animal.pictures.source.requests").tags("animal", "bear", "outcome", "success")
+                .timer().count()).isEqualTo(1);
+        assertThat(meterRegistry.get("animal.pictures.source.image.size").tag("animal", "bear")
+                .summary().totalAmount()).isEqualTo(JPEG.length);
     }
 
     @Test
@@ -66,6 +72,8 @@ class HttpAnimalPictureClientTest {
         assertThatThrownBy(() -> client.fetch(AnimalType.DOG))
                 .isInstanceOf(PictureSourceException.class)
                 .hasMessageContaining("place.dog");
+        assertThat(meterRegistry.get("animal.pictures.source.requests").tags("animal", "dog", "outcome", "error")
+                .timer().count()).isEqualTo(1);
     }
 
     @Test

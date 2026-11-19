@@ -56,7 +56,10 @@ GET /api/pictures/dog/latest
 - `AnimalPicturesConfiguration` – registers the properties, a `Clock` (so tests can fix the time) and the
   HTTP client timeouts.
 
-**`web`** – error handling
+**`web`** – error handling and request logging
+- `RequestLoggingFilter` – gives each request an ID (from the `X-Request-Id` header or a new UUID), puts it in
+  the logging MDC so every log line of that request carries it, returns it in the response, and logs one line
+  per request with status and duration.
 - `ApiExceptionHandler` – maps exceptions to RFC 9457 problem-detail JSON:
   `InvalidRequestException` → 400, `PictureNotFoundException` → 404, `PictureSourceException` → 502.
 
@@ -65,7 +68,20 @@ GET /api/pictures/dog/latest
   to work on both PostgreSQL and H2 (H2 runs in PostgreSQL mode). Images are stored in a `BYTEA` column,
   and an index on `(animal_type, created_at DESC, id DESC)` makes "latest" a single index lookup.
   Hibernate only *validates* the schema (`ddl-auto: validate`); it never changes it.
+- `animal-pictures-defaults.yml` – logging and actuator/metrics settings shared by both apps (each app's
+  `application.yml` imports it with `spring.config.import`).
 - `static/index.html` – the simple UI (plain HTML + `fetch()`), served at `/`.
+
+## Logging and metrics in the code
+
+- **Logs**: SLF4J loggers. INFO for one line per request and for stored pictures, WARN for picture API failures,
+  DEBUG for each picture API call and service step. The log pattern adds `[requestId]`.
+- **Metrics** (Micrometer, exported to Prometheus by `micrometer-registry-prometheus`):
+  `PictureService` counts `animal.pictures.stored`, and `HttpAnimalPictureClient` times each call in
+  `animal.pictures.source.requests` (tags `animal`, `outcome`) and records `animal.pictures.source.image.size`.
+  Spring Boot adds HTTP, JVM, database-pool and CPU metrics automatically.
+- **Monitoring stack**: `docker-compose.monitoring.yml` + `monitoring/` (Prometheus scrape config, Grafana data
+  source and the provisioned dashboard). `docker-compose.debug.yml` enables the Java debugger.
 
 ## Tests
 
@@ -74,7 +90,7 @@ GET /api/pictures/dog/latest
 | `AnimalTypeTest` | core | parsing animal names |
 | `PictureServiceTest` | core | count validation, all-or-nothing saving, latest / not found (Mockito) |
 | `HttpAnimalPictureClientTest` | core | correct URL per animal, content-type handling, error / empty / oversized responses (`MockRestServiceServer`) |
-| `EmbeddedPictureApiIntegrationTest` | embedded | the full app with H2: endpoints, status codes, error JSON, health |
+| `EmbeddedPictureApiIntegrationTest` | embedded | the full app with H2: endpoints, status codes, error JSON, health, request ID, metrics, runtime log levels |
 | `PostgresPictureApiIntegrationTest` | postgres | the full app with real PostgreSQL (Testcontainers): binary storage and latest lookup |
 | `scripts/smoke-test.sh` | – | end-to-end against a running container and the **real** picture APIs |
 

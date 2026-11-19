@@ -1,0 +1,14 @@
+# Debug add-on: opens a Java debugger port and turns on DEBUG logs. Works with either version:
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build
+#   docker compose -f docker-compose.embedded.yml -f docker-compose.debug.yml up --build
+# Then attach your IDE's "Remote JVM Debug" to localhost:5005.
+
+services:
+  app:
+    environment:
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+      LOGGING_LEVEL_COM_EXAMPLE_ANIMALPICTURES: DEBUG
+      # Uncomment to see the SQL Hibernate runs:
+      # LOGGING_LEVEL_ORG_HIBERNATE_SQL: DEBUG
+    ports:
+      - "${DEBUG_PORT:-5005}:5005"
